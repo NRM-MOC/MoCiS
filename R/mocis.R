@@ -340,16 +340,14 @@ mocis <- function(file, vars = NULL, n0 = 4,
                                          n.pow = n.pow),
                                   silent = TRUE)
                     ## Linear model last 10 years
-                    linmod10 <- if(nrow(xm) >= subset_years) {
-                        try(do_reg(data = subset(xm, YEAR > (max(xm$YEAR) - subset_years)),
-                                   y = paste(y),
-                                   alpha = alpha,
-                                   rob = roblm,
-                                   b.pow = b.pow,
-                                   power = power,
-                                   n.pow = n.pow),
-                            silent = TRUE)
-                    } else NULL
+                    linmod10 <- try(do_reg(data = subset(xm, YEAR > (max(xm$YEAR) - subset_years)),
+                                           y = paste(y),
+                                           alpha = alpha,
+                                           rob = roblm,
+                                           b.pow = b.pow,
+                                           power = power,
+                                           n.pow = n.pow),
+                                    silent = TRUE)
                     ## Smooth
                     smooth <- try(do_smooth(data = xm, y = paste(y),
                                             alpha, crit, rob = robsm,
