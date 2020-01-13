@@ -1,0 +1,20 @@
+##' Marks suspected outliers in a series
+##'
+##' Uses the methodology described in \ldots to check for suspected outliers.
+##' @title detect_out
+##' @param fit An \code{lm} fit.
+##' @param alpha Cutoff for declaring a point an outlier, defaults to 0.05.
+##' @return A vector with 0 and 1 where 1 denotes the suspected outlier.
+##' @author Erik Lampa
+##' @importFrom MASS studres
+##' @export
+detect_out <- function(fit, alpha) {
+    ## Tests for outliers in the series
+    
+    r <- studres(fit)
+    outs <- sapply(1:length(r), function(i) {
+        tcrit <- qt(alpha, fit$df.residual)
+        ifelse(-abs(r[i]) < tcrit, 1, 0)
+    })
+    outs
+}

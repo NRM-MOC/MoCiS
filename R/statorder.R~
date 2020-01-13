@@ -1,0 +1,38 @@
+statorder <- function(...) {
+    ## Provides the ordering of locales and species for the output tables.
+    list(hav =  data.frame(
+             genus = c(rep("CLUP", 4),
+                       rep("PERC", 2),
+                       rep("CLUP", 9), "MYTI",
+                       "PERC", "ZOAR", "CLUP", "SIGR",
+                       "GADU",
+                       rep("CLUP", 7), "GADU", "MYTI",
+                       "CLUP", "MYTI", "ZOAR", "HAEM",
+                       "STER"),
+             loc = c("RAFJ", "HAFJ", "KIFJ", "HOLM",
+                     "HOLM", "ORFJ", "GAFJ", "LAFJ",
+                     "51G9", "ANGK", "ANGV", "49G9",
+                     "LAGN", "46H0", "LAND", "KVFJ",
+                     "KVFJ", "KVFJ", "BYXE", "STKA",
+                     "SEGO", "UTLA", "UTLV", "40G7",
+                     "HABU", "ABBE", "KULL", "FLAD",
+                     "FLAD", "NIDI", "VADO", "FJBA",
+                     "FJBA", "TJRN", "TJRN"),
+             order = 1:35
+         ),
+         limn = data.frame(
+             genus = c(rep("SALV", 2), "ESOX",
+                       rep("PERC", 3), "SALV",
+                       rep("PERC", 20), "ESOX",
+                       rep("PERC", 4)),
+             loc = c("ABIS", "TJUL", "STVI", "BRAN",
+                     "REMM", "DEGE", "STBJ", "STBA",
+                     "STEN", "GIPS", "SPJU", "OVSK",
+                     "FYSI", "TARN", "LIMM", "BYSJ",
+                     "SENV", "ALGS", "SVAR", "FRAC",
+                     "BAST", "ALLG", "HORS", "SKAR",
+                     "LORE", "FIOL", "HJAR", "BOLM",
+                     "STSK", "SANN", "KRAN", "KRAG"),
+             order = 1:32
+         ))
+}

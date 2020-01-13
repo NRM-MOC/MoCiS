@@ -1,0 +1,12 @@
+Package: MoCiS
+Title: Monitoring of Contaminants in Sweden
+Version: 1.0
+Authors@R: person("Erik", "Lampa", email = "erik.lampa@ucr.uu.se", role = c("aut", "cre"))
+Description: Implements some of the functionality of PIA which is written by Anders Bignert.
+Depends: R (>= 3.5.0)
+License: GPL-2
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
+VignetteBuilder: knitr
+Suggests: knitr

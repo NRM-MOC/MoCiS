@@ -1,0 +1,88 @@
+##' Fits a linear model using the log-transformed contaminant values as the
+##' outcome and year as the indpendent variable.
+##'
+##' Options include a robust linear model fit using \code{lmrob} from the
+##'     \code{robustbase} package although all power calculations are based on
+##'     the ordinary least squares fit. The fit is returned and all methods
+##'     available for an \code{lm} or \code{roblm} fit can be used.
+##' @title do_reg
+##' @param data A data frame.
+##' @param y The outcome variable.
+##' @param alpha Significance lavel for the power calculations.
+##' @param rob Set to true to perform a robust linear model fit. Very experimental!
+##' @return A list containing the slope esimate and confidence interval
+##'     expressed as percentage per year, the coefficient of variation around
+##'     the regression line, three estimates of power, the coefficient of
+##'     determination, a p-value for the null hypothesis that the slope is 0,
+##'     the estimated concentration of the contaminant and its confidence
+##'     interval for the last year in the series, the fitted line, the years
+##'     present in the data and the linear model object.
+##' @author Erik Lampa
+##' @import robustbase multcomp sandwich
+##' @export
+do_reg <- function(data, y, alpha, rob) {
+    ## Performs the linear regression
+    ## Set up the formula
+    fmla.lm <- as.formula(paste("log(", y, ")", "~ YEAR"))
+    ## Allow for the use of a robust linear model
+    ## Default = FALSE. Fit the model and estimate a robust variance matrix
+    if (rob == FALSE) {
+        fm1 <- lm(fmla.lm, data = data)
+        vc <- sandwich::vcovHAC(fm1)
+    }
+    ## Use a robust linear model
+    if (rob == TRUE) {
+        fm1 <- lmrob(fmla.lm, data = data, setting = "KS2014")
+    }
+    ## Set up the contrast matrix. Maybe use coeftest instead?
+    L <- matrix(0, ncol = length(coef(fm1)))
+    colnames(L) <- names(coef(fm1))
+    L[1, "YEAR"] <- 1
+    ## Estimate the slope, confidence interval and p-value using the robust
+    ## variance matrix
+    if (rob == FALSE) {
+        gm1 <- glht(fm1, linfct = L, vcov = vc)
+    } else gm1 <- glht(fm1, linfct = L)
+    su <- summary(gm1)
+    ci <- confint(gm1)
+    su2 <- summary(fm1)
+    pval <- as.numeric(su$test$pvalues)[1]
+    ## Repeat for the last year in the series
+    L.last <- matrix(1, ncol = length(coef(fm1)))
+    colnames(L.last) <- names(coef(fm1))
+    L.last[1, "YEAR"] <- max(data$YEAR)
+    if (rob == FALSE) {
+        gm.last <- glht(fm1, linfct = L.last, vcov = vc)
+    } else gm.last <- glht(fm1, linfct = L.last)
+    ci.last <- confint(gm.last)
+    ## Get an estimate of the error variance. Use var(residuals) if a roblm
+    ## model is used.
+    sig2 <- ifelse(rob == FALSE, su2$sigma^2,
+                   var(summary(fm1)$resid))
+    ## Degrees of freedom
+    df <- ifelse(rob == FALSE, su$df, su$model$df.residual)
+    ## Return a list with different statistics
+    list(slope = 100 * (exp(ci$confint[1, 1]) - 1),
+         lower = 100 * (exp(ci$confint[1, 2]) - 1),
+         upper = 100 * (exp(ci$confint[1, 3]) - 1),
+         cv = c(100 * sqrt(exp(sig2) - 1),
+                100 * pow(n = nrow(data), df = df,
+                          a = 1 - alpha, s2 = sig2,
+                          power = 0.8),
+                ceiling(pow(b = 0.1, df = df, a = 1 - alpha,
+                            s2 = sig2, power = 0.8))),
+         power = c(pow(b = 0.1, n = nrow(data), df = df,
+                       a = 1 - alpha/2, s2 = sig2),
+                   pow(b = 0.1, n = 10, df = df,
+                       a = 1 - alpha/2, s2 = sig2),
+                   100 * pow(n = 10, df = df, a = 1 - alpha/2,
+                             s2 = sig2, power = 0.8)),
+         r2 = su2$r.squared,
+         p = pval,
+         yhat.last = exp(ci.last$confint[1, 1]),
+         yhat.last.lower = exp(ci.last$confint[1, 2]),
+         yhat.last.upper = exp(ci.last$confint[1, 3]),
+         fitted = exp(fitted(fm1)),
+         years = data[, "YEAR"],
+         fit = fm1)
+}

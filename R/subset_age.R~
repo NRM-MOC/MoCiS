@@ -1,0 +1,10 @@
+subset_age <- function(data, agesel, what, genus, where) {
+    ## Performs age selection where applicable. Checks the list agesel if there
+    ## is an entry for locale "where", genus "genus" and variable "what". If
+    ## there are limits, extract them and subset the data based on the limits.
+    lims <- getElement(getElement(getElement(agesel, what), genus), where)
+    if (!is.null(lims)) {
+        subset(data, as.numeric(ALDR) >= lims[1] &
+               as.numeric(ALDR) <= lims[2])
+    } else data
+}

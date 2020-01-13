@@ -1,0 +1,198 @@
+##' Generates the summary table(s) resulting from the analysis.
+##'
+##' For internal use only
+##' @title gen_tab
+##' @param li A list resulting from \code{mocis}
+##' @param vars Variables which the tables should be generated from. Passed from \code{mocis}.
+##' @param outpath Where the table(s) should be saved. Passed from \code{mocis}.
+##' @param file The file containing the data. Passed from \code{mocis}.
+##' @param ord Ordering of the data in the table(s), defaults to \code{statorder}.
+##' @param stationnames Names of the monitoring stations. A list, defaults to
+##'     \code{stations}.
+##' @param specs Species list. Defaults to species().
+##' @return A list with elements
+##' \itemize{
+##'     \item genus - specis
+##'     \item loc - the locale
+##'     \item n - the total number of measurements
+##'     \item yrs - the number of years in te series
+##'     \item years.min - earliest measurement
+##'     \item years.max - latest measurement
+##'     \item m - the overall geometric mean value
+##'     \item m.lower - lower confidence limit for m
+##'     \item m.upper - upper confidence limit for m
+##'     \item slope - slope of the regression line expressed as \% per year
+##'     \item ci.lower - lower confidence limit for slope
+##'     \item ci upper - upper confidence limit for slope
+##'     \item r2 - coefficient of determination
+##'     \item pval - p-value from the test of the null hypothesis that the slope
+##'     is 0.
+##'     \item cv - coefficient of variation around the linear regression line
+##'     \item ldt - lowest detectable trend
+##'     \item yrq - number of years required to not miss a trend
+##'     \item pow1 - \ldots
+##'     \item pow2 - \ldots
+##'     \item pow3 - \ldots
+##'     \item tau - Kendall's tau
+##'     \item p.tau - p-value resulting from the test of the null hypothesis
+##'     that tau equals 0.
+##'     \item cv.sm - coefficient of determination around the regression smooth
+##'     \item p.smooth - p-value resulting from the test with the null
+##'     hypothesis that the smooth explains less than or as much variance as the
+##'     regression line
+##'     \item min.trend - minimal detectable trend during the last 10 years
+##'     based on the degrees of freedom used by the smooth
+##'     \item yhat.last - estimate of the contaminant level for the last year in
+##'     the series
+##'     \item yhat.last.lower - lower confidence limit of the estimate
+##'     \item yhat.last.upper - upper confidence limit of the estimate
+##'     \item slope.10 - slope for the last 10 years, if applicable, expressed
+##'     as \% per year
+##'     \item ci.10.lower - lower confidence limit for the slope
+##'     \item ci.10.upper - upper confidence limit for the slope
+##'     \item cv.10 - coefficient of variation around the slope, if applicable
+##'     \item ldt.10 - lowest detectable trend during the last 10 years
+##'     \item yrq.10 - number of years required
+##'     \item pow1.10 - \ldots
+##'     \item pow2.10 - \ldots
+##'     \item pow3.10 - \ldots
+##'     \item r2.10 - coefficient of determination
+##'     \item pval.10 - p-value resulting from the test with the null hypothesis
+##'     that the slope the last 10 years is 0
+##'     \item changepoint - the change point, if applicable
+##' }
+##' @author Erik Lampa
+##' @import openxlsx
+##' @export
+gen_tab <- function(li, vars, outpath, file, ord, stationnames,
+                    specs) {
+    stattype <- ifelse(grepl("hav|uria", file), "hav", "limn")
+    varinds <- unique(do.call("c", lapply(1:length(li), function(i) {
+        unlist(lapply(1:length(li[[i]]), function(j) {
+            which(vars %in% names(li[[i]][[j]]))
+        }))
+    })))
+    vars <- vars[varinds]
+    out <- lapply(vars, function(v) {
+        locs <- lapply(1:length(li), function(i) {
+            gens <- lapply(1:length(li[[i]]), function(j) {
+                foo <- try(getElement(li[[i]][[j]], v), silent = TRUE)
+                if (!inherits(foo, "try-error")) {
+                    if (is.list(foo[[1]])) {
+                        data.frame(
+                        genus = unique(foo$data$GENUS),
+                        loc = unique(foo$data$LOC),
+                        n = nrow(foo$data[!is.na(foo$data[[v]]),]),
+                        yrs = nrow(foo$aggdata),
+                        years.min = min(foo$aggdata$YEAR),
+                        years.max = max(foo$aggdata$YEAR),
+                        m = foo$m[1],
+                        m.lower = ifelse(!is.nan(foo$m[2]),
+                                         foo$m[2], NA),
+                        m.upper = ifelse(!is.nan(foo$m[3]),
+                                         foo$m[3], NA),
+                        slope = ifelse(!is.null(foo$linmod),
+                                       foo$linmod$slope, NA),
+                        ci.lower = ifelse(!is.null(foo$linmod),
+                                          foo$linmod$lower, NA),
+                        ci.upper = ifelse(!is.null(foo$linmod),
+                                          foo$linmod$upper, NA),
+                        r2 = ifelse(!is.null(foo$linmod),
+                                    foo$linmod$r2, NA),
+                        pval = ifelse(!is.null(foo$linmod),
+                                      foo$linmod$p, NA),
+                        cv = ifelse(!is.null(foo$linmod),
+                                    foo$linmod$cv[1], NA),
+                        ldt = ifelse(!is.null(foo$linmod),
+                                     foo$linmod$cv[2], NA),
+                        yrq = ifelse(!is.null(foo$linmod),
+                                     foo$linmod$cv[3], NA),
+                        pow1 = ifelse(!is.null(foo$linmod),
+                                      foo$linmod$power[1], NA),
+                        pow2 = ifelse(!is.null(foo$linmod),
+                                      foo$linmod$power[2], NA),
+                        pow3 = ifelse(!is.null(foo$linmod),
+                                      foo$linmod$power[3], NA),
+                        tau = ifelse(is.list(foo$smooth),
+                                     foo$smooth$tau, NA),
+                        p.tau = ifelse(is.list(foo$smooth),
+                                       foo$smooth$p.tau, NA),
+                        cv.sm = ifelse(is.list(foo$smooth),
+                                       foo$smooth$cv[1], NA),
+                        p.smooth = ifelse(is.list(foo$smooth),
+                                          foo$smooth$p.smooth, NA),
+                        min.trend = ifelse(is.list(foo$smooth),
+                                           foo$smooth$cv[2], NA),
+                        yhat.last = ifelse(is.list(foo$smooth),
+                                           foo$smooth$yhat.last, NA),
+                        yhat.last.lower = ifelse(is.list(foo$smooth),
+                                                 foo$smooth$yhat.last.lower,
+                                                 NA),
+                        yhat.last.upper = ifelse(is.list(foo$smooth),
+                                                 foo$smooth$yhat.last.upper, NA),
+                        slope.10 = ifelse(!is.null(foo$linmod10),
+                                          foo$linmod10$slope, NA),
+                        ci.10.lower = ifelse(!is.null(foo$linmod10),
+                                             foo$linmod10$lower, NA),
+                        ci.10.upper = ifelse(!is.null(foo$linmod10),
+                                             foo$linmod10$upper, NA),
+                        cv.10 = ifelse(!is.null(foo$linmod10),
+                                       foo$linmod10$cv[1], NA),
+                        ldt.10 = ifelse(!is.null(foo$linmod10),
+                                        foo$linmod10$cv[2], NA),
+                        yrq.10 = ifelse(!is.null(foo$linmod10),
+                                        foo$linmod10$cv[3], NA),
+                        pow1.10 = ifelse(!is.null(foo$linmod10),
+                                         foo$linmod10$power[1], NA),
+                        pow2.10 = ifelse(!is.null(foo$linmod10),
+                                         foo$linmod10$power[2], NA),
+                        pow3.10 = ifelse(!is.null(foo$linmod10),
+                                         foo$linmod10$power[3], NA),
+                        r2.10 = ifelse(!is.null(foo$linmod10),
+                                       foo$linmod10$r2, NA),
+                        pval.10 = ifelse(!is.null(foo$linmod10),
+                                         foo$linmod10$p, NA),
+                        changepoint = ifelse(!is.null(foo$changepoint),
+                                              foo$changepoint$changepoint,
+                                              NA))
+                    }
+                    
+                }
+            })
+            names(gens) <- names(li[[i]])
+            do.call("rbind", gens)
+        })
+        names(locs) <- names(li)
+        locss <- do.call("rbind", locs)
+        rownames(locss) <- NULL
+        locss[order(locss$genus, locss$loc),]
+    })
+    names(out) <- vars
+    ##if (!grepl("limn", file)) {
+    out <- lapply(out, function(x) {
+        x <- merge(ord[[stattype]], x, by = c("loc", "genus"),
+                   all.x = TRUE)
+        x$genus <- as.character(x$genus)
+        x$genus <- do.call("c",
+                           lapply(x$genus,
+                                  function(g) {
+                                      getElement(specs, g)$name
+                                  }))
+        x$loc <- as.character(x$loc)
+        x$loc <- do.call("c",
+                         lapply(x$loc, function(l) {
+                             stationnames[[stattype]][[l]][["name"]]
+                         }))
+        x <- x[order(x$order),]
+        x[,-which(names(x) == "order")]
+    })
+    ##}
+    wb <- createWorkbook()
+    for (t in 1:length(out)) {
+        addWorksheet(wb = wb,
+                     sheetName = names(out)[t])
+        writeData(wb = wb, sheet = t,
+                  x = out[[t]])
+    }
+    saveWorkbook(wb, file = paste0(outpath, "_tables.xlsx"), overwrite = TRUE)
+}

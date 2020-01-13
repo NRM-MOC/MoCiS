@@ -1,0 +1,50 @@
+##' Tests for a possible change point in the series accoring to the methodology
+##' described in \ldots
+##'
+##' None
+##' @title do_changep
+##' @param data A data frame.
+##' @param y The outcome variable.
+##' @param n0 The minimal number of years on each side of the change point.
+##' @return A list with the change point, the value of the D statistic at the
+##'     change point and the fitted values
+##' @author Erik Lampa
+##' @import nlme
+##' @export
+do_changep <- function(data, y, n0) {
+    ## Tests for a changepoint in the series
+    
+    bps <- (min(data$YEAR) + n0):(max(data$YEAR) - n0)
+    dat <- data
+    fmla.b <- as.formula(paste("log(", y, ") ~ YEAR * dummy"))
+    fmla.reg <- as.formula(paste("log(", y, ") ~ YEAR"))
+    res <- sapply(bps, function(i) {
+            dat$dummy <- ifelse(dat$YEAR > i, 1, 0)
+            fm0 <- try(nlme::gls(fmla.reg, data = dat,
+                       correlation = corCAR1(form = ~YEAR),
+                       method = "ML"), silent = TRUE)
+            fmb <- try(nlme::gls(fmla.b, data = dat,
+                       correlation = corCAR1(form = ~YEAR),
+                       method = "ML"), silent = TRUE)
+            if (!inherits(fm0, "try-error") & !inherits(fmb, "try-error")) {
+                ll <- -2*(logLik(fm0) - logLik(fmb))
+                as.numeric(ll)
+            } else NA
+    })
+
+    if(!any(is.na(res))) {
+        maxD <- max(res)
+        bp <- bps[which(res == max(res))]
+        n <- nrow(data)
+        data("dcrit", envir = environment())
+        if (!exists("dcrit")) stop("dcrit does not exist")
+        ind <- tail(which(dcrit$n <= n), n = 1)
+        test <- ifelse(maxD > dcrit$Dcrit[ind], 1, 0)
+        if(test == 1) {
+            dat$dummy <- ifelse(dat$YEAR > bp, 1, 0)
+            bp.fit <- lm(fmla.b, data = dat)
+            list(changepoint = ifelse(length(bp) > 1, bp[1], bp),
+                 D = maxD, fitted = exp(fitted(bp.fit)))
+        } else NULL
+    } else NULL
+}

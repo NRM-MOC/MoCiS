@@ -1,0 +1,400 @@
+##' The main analysis function
+##'
+##' Main function to perform the analyses, i.e. linear model fit, smooth fit,
+##' outlier detection and creation of tables
+##' @title mocis
+##' @param file The Excel file which holds the data
+##' @param vars Variables that should be analyzed
+##' @param n0 For use in \code{do_changep}, the minimum number of year on each
+##'     side of the change point
+##' @param outdir Output directory. Defaults to the current working directory in
+##'     left empty.
+##' @param add.vars Additional variables. The function tries to guess some
+##'     sensible variables if left empty.
+##' @param sheet The sheet containing the data in the Excel file. Deafults to 1.
+##' @param nyears The minimum number of years that should be available for
+##'     analysis. Defaults to 5.
+##' @param alpha The p-value threshold. Defaults to 0.05
+##' @param crit Criterion for automatic bandwidth selection. A character, "gcv"
+##'     or "aic". Degaults to "gcv".
+##' @param fat_adj A list with rules for fat adjustment. Defaults to \code{fat_adjust()}.
+##' @param generate_tables Logical. Should tables be generated? Deafaults to TRUE.
+##' @param verbose Logical. If TRUE, prints the progress.
+##' @param agesel A list with rules for the age selection. Defaults to \code{age_select}.
+##' @param GRU For birds. Selection based on the GRU variable. Defaults to 1.
+##' @param roblm Logical. If TRUE, performs a robust linear model. Experimental.
+##' @param robsm Logical. If TRUE, performs a robust smooth. Experimental.
+##' @param lims Limits for the contaminants. Defaults to \code{limits()}.
+##' @param ord A list of \code{data.frames} giving the ordering in the
+##'     tables. Defaults to \code{statorder()}.
+##' @param stationnames A list with station names. Defaults to
+##' \code{stations()}.
+##' @param yearvar The variable containing the years. Defaults to "YWD".
+##' @return A list with elements:
+##' \itemize{
+##'    \item \code{data} A \code{data.frame} containing the raw data.
+##'    \item \code{aggdata} A \code{data.frame} containing the aggregated data
+##'     (yearly geometric mean values, yearly geometric standard deviations,
+##'     number of measurements per year, if all values were below the LOD).
+##'    \item \code{m} Overall geometric mean value with 95% confidence interval.
+##'    \item \code{limit} A list with elements \code{tv} the target value and
+##'     \code{fat} the average fat percentage in the series.
+##'    \item \code{linmod} Output from \code{do_reg}.
+##'    \item \code{linmod10} Output from \code{do_reg} applied to the last 10
+##'     years in the series if applicable.
+##'    \item \code{smooth} Output from \code{do_smooth}.
+##'    \item \code{changepoint} Output from \code{do_changep}.
+##'    \item \code{fatadjust} Either 1 or 0 dependeing on whether fat adjustment
+##'     was done or not.
+##'    \item \code{stattype} A character vector of length 2 denoting which type
+##'     of file was analyzed.
+##'    }
+##' @author Erik Lampa
+##' @import lme4 EnvStats openxlsx
+##' @export
+mocis <- function(file, vars = NULL, n0 = 4,
+                  outdir = NULL, add.vars = NULL, sheet = 1,
+                  nyears = 5, alpha = 0.05, crit = "gcv",
+                  fat_adj = fat_adjust(), generate_tables = TRUE,
+                  verbose = FALSE, agesel = age_select(), GRU = 1,
+                  roblm = FALSE, robsm = FALSE, lims = limits(),
+                  ord = statorder(), stationnames = stations(),
+                  specs = species(), yearvar = "YWD") {
+    ## Main function to perform the analyses, i.e. linear model fit, smooth fit,
+    ## outlier detection and creation of tables
+
+    ## First determine what type of file we're working with
+    type <- ifelse(grepl("hav", file), "hav",
+            ifelse(grepl("limn", file), "limn",
+            ifelse(grepl("uria", file), "uria",
+                   "other")))
+    srt <- ifelse(grepl("met", file), "met",
+           ifelse(grepl("clc", file), "clc",
+           ifelse(grepl("dx", file), "dx",
+           ifelse(grepl("pah", file), "pah",
+                  "other"))))
+
+    ## If outdir is not specified, use the current working directory
+    if (is.null(outdir)) {
+        outdir <- getwd()
+        message(paste("Output directory not specified, using", outdir))
+    }
+    if (substr(outdir, nchar(outdir), nchar(outdir)) != "/") {
+        outdir <- paste0(outdir, "/")
+    }
+    ## if (length(grep("/", file, fixed = TRUE)) > 0) {
+    ##     file <- tail(strsplit(file, "/", fixed = TRUE)[[1]], n = 1)
+    ## }
+
+    ## Read the file
+    d <- read.xlsx(file, sheet = sheet)
+    ## If not in the directory where the data are located, strip the path and
+    ## just keep the filename
+    x <- strsplit(file, "/", fixed = TRUE)[[1]]
+    file <- x[length(x)]
+
+    ## For birds. If FPRCU is not NA, use those values, else use FPRCPP. If
+    ## those values are NA, use FPRC and FPRC*. Finally remove negative values.
+    if (srt == "dx" & type != "uria") {
+        d$`FPRC-` <- ifelse(!is.na(as.numeric(d$FPRCU)), as.numeric(d$FPRCU), NA)
+        d$`FPRC-` <- ifelse(is.na(d$`FPRC-`) &
+                            !is.na(as.numeric(d$FPRCPP)), as.numeric(d$FPRCPP),
+                            d$`FPRC-`)
+        d$`FPRC-` <- ifelse(is.na(d$`FPRC-`) &
+                            !is.na(as.numeric(d$FPRC)), as.numeric(d$FPRC),
+                            d$`FPRC-`)
+        d$`FPRC-` <- ifelse(is.na(d$`FPRC-`) & !is.na(as.numeric(d$`FPRC*`)),
+                            as.numeric(d$`FPRC*`),
+                            d$`FPRC-`)
+        d$`FPRC-` <- ifelse(d$`FPRC-` < 0, NA, d$`FPRC-`)
+    }
+    ## If both FPRC and FPRC* occur, remove FPRC
+    if (all(c("FPRC", "FPRC*") %in% names(d))) {
+        d <- subset(d, select = -c(FPRC))
+    }
+    ## And also FPRC* if birds are considered
+    if (srt == "dx" & type != "uria") d <- subset(d, select = -c(`FPRC*`))
+
+    ## Remove all "weird" characters from names
+    names(d) <- gsub("\\*|\\-", "", names(d))
+
+    ## Check if any variable contains nothing but missing data and keep those
+    ## with any data
+    check_vars <- function(x) {
+        x <- as.numeric(x)
+        ifelse(all(is.na(x)), 0,
+        ifelse(max(x, na.rm = TRUE) <= -9, 0,1))
+    }
+    okvars <- sapply(vars, function(v) {
+        ind <- which(grepl(v, names(d)))
+        if (length(ind) == 1) {
+            check_vars(d[,ind])
+        } else 1
+    })
+    vars <- vars[okvars == 1]
+    if (any(okvars == 0)) {
+        message("Variable(s) ", paste(names(okvars[okvars == 0]), sep = ", "),
+    " dropped - no non-missing values.")
+    }
+
+    ## Run setip
+    data <- setup(d, file, vars = vars, add.vars = NULL, GRU = GRU,
+                  type = type, srt = srt, yearvar = yearvar,
+                  nyears = nyears, agesel = agesel)
+
+    ## Create the folder structure
+    ## Main folder gets the file name
+    ## In the main folder, create locale specific folders
+    ## In each locale folder, create species folders
+    ## In each species folder, create contimnant/variable folders
+    maindir <- strsplit(file, ".", fixed = TRUE)[[1]][1]
+   
+    ifelse(!dir.exists(file.path(paste0(outdir, maindir))),
+           dir.create(file.path(paste0(outdir, maindir))), FALSE)
+    path <- paste0(outdir, maindir)
+    
+    locs <- lapply(1:length(data), function(i) {
+        ifelse(!dir.exists(file.path(paste0(path, "/", names(data)[i]))),
+               dir.create(file.path(paste0(path, "/", names(data)[i]))), FALSE)
+        genpath <- paste0(path, "/", names(data)[i])
+        gens <- lapply(1:length(data[[i]]), function(j) {
+            ifelse(!dir.exists(file.path(paste0(genpath, "/", names(data[[i]])[j]))),
+               dir.create(file.path(paste0(genpath, "/", names(data[[i]])[j]))),
+               FALSE)
+            varpath <- paste0(genpath, "/", names(data[[i]])[j])
+            vvars <- try(lapply(1:length(data[[i]][[j]]), function(k) {
+               ifelse(!dir.exists(file.path(paste0(varpath, "/", names(data[[i]][[j]])[k]))),
+               dir.create(file.path(paste0(varpath, "/", names(data[[i]][[j]])[k]))),
+               FALSE)
+
+               ## Set the outcome variable
+               y <- names(data[[i]][[j]])[k]
+               datapath <- paste0(varpath, "/", y)
+               ## Get the data set from the list
+               d <- data[[i]][[j]][[k]]
+               ## If y for some reason is not numeric, convert it
+               if (!is.numeric(d[[y]])) d[[y]] <- as.numeric(d[[y]])
+               ## Check if all values are below the LOD
+               all.lod <- tapply(d[[y]], d$YEAR, FUN = function(x) {
+                   ifelse(any(x > 0, na.rm = TRUE), 0, 1)
+               })
+               ## Convert values < LOD to something > LOD
+               d[[y]] <- lod(d[[y]])
+               ## Progress printout
+               if (verbose == TRUE) {
+                   message("Locale = ", unique(d$LOC), ", Genus = ", unique(d$GENUS),
+                           ", Variable = ", y)
+               }
+               ## Check if fat adjustment should be done
+               fatadjust <- check_fat_adjust(data = d,
+                                             y = y, locvar = "LOC")
+               fatadjust <- ifelse(is.na(fatadjust), 0, fatadjust)
+                   if (fatadjust == 1 & "FPRC" %in% names(d)) {
+                       d$FPRC <- as.numeric(d$FPRC)
+                       d$FPRC[d$FPRC == -9] <- NA
+                       x <- cbind(d[[y]], d$FPRC)
+                       inds <- which(apply(x, 1, FUN = function(x) !is.na(sum(x))))
+                       da <- d
+                       da$FPRC <- scale(da$FPRC, center = TRUE, scale = FALSE)
+                       years <- unique(da[inds,]$YEAR)
+                       fatfmla <- paste("log(", y, ") ~ FPRC + (FPRC|YEAR)")
+                       ## Fit a mixed model with random coefficients for
+                       ## YEAR. This is somewhat similar to calculating an
+                       ## average slope but the yearly slopes get different
+                       ## weights depending on the number of observations in
+                       ## each year.
+                       fit <- lme4::lmer(fatfmla, data = da[inds,])
+                       ys <- exp(fitted(fit))
+                       d[[y]] <- NA
+                       d[[y]][inds] <- ys
+                   }
+               fmla.agg <- as.formula(paste(y, "~ YEAR"))
+               ## Aggregate the data calculating yearly average, standrard
+               ## deviations and number of obs.
+               xm <- try(aggregate(fmla.agg, FUN = EnvStats::geoMean,
+                                    na.rm = TRUE, data = d),
+                         silent = TRUE)
+               if (!inherits(xm, "try-error")) {
+                   xmn <- aggregate(fmla.agg, FUN = length, data = d)
+                   xmsd <- aggregate(fmla.agg, FUN = function(x) sd(log(x)),
+                                        data = d)
+                   names(xmn)[2] <- "n"
+                   names(xmsd)[2] <- "sd"
+                   xm <- merge(xm, xmn, by = "YEAR")
+                   xm <- merge(xm, xmsd, by = "YEAR")
+               } else xm <- data.frame(y = geoMean(g[[y]]),
+                                       n = 1, sd = NA)
+               ## Calculate the confidence interval for the yearly means
+               if (nrow(xm) > 1) {
+                   tcrit <- sapply(xm$n, function(n) {
+                       qt(1 - alpha/2, n - 1)
+                   })
+               }
+               tcrit <- ifelse(nrow(xm) == 1 & xm$n > 1,
+                               qt(1 - alpha/2, xm$n - 1),
+                               ifelse(nrow(xm) == 1 & xm$n == 1, NA, tcrit))
+               if (nrow(xm) >= 1 & exists("tcrit")) {
+                   xm$lower <- exp(log(xm[[y]]) - tcrit * xm$sd/sqrt(xm$n - 1))
+                   xm$upper <- exp(log(xm[[y]]) + tcrit * xm$sd/sqrt(xm$n - 1))
+               } else {
+                   xm$lower <- NA
+                   xm$upper <- NA
+               }
+               ## Set CI limits to NA if all values are < LOD in a year
+               all.lod <- all.lod[names(all.lod) %in% as.character(xm$YEAR)]
+               xm$all.lod <- all.lod
+               xm$lower[xm$all.lod == 1] <- NA
+               xm$upper[xm$all.lod == 1] <- NA
+               mdata <- xm
+               mdata$sd <- NULL
+               mdata$all.lod <- NULL
+               mdata <- mdata[order(mdata$YEAR),]
+               ## Save the data
+               wb <- createWorkbook()
+               addWorksheet(wb, sheetName = "Data")
+               writeData(wb, sheet = 1, x = d, rowNames = FALSE)
+               addWorksheet(wb, sheetName = "Mean values")
+               writeData(wb, sheet = 2, x = mdata, rowNames = FALSE)
+               filename <- paste0("data_", unique(d$LOC), "_",
+                                  unique(d$GENUS), "_",
+                                  y, "_", Sys.Date())
+               saveWorkbook(wb, paste0(datapath, paste0("/", filename, ".xlsx")),
+                            overwrite = TRUE)
+               nainds <- which(is.na(xm[[y]]))
+               if (length(nainds) > 0) xm <- xm[-nainds,]
+               xm$NKOO <- unique(na.omit(d$NKOO))[1]
+               xm$EKOO <- unique(na.omit(d$EKOO))[1]
+               xm$LOC <- unique(na.omit(d$LOC))[1]
+               md <- d[!is.na(d[[y]]),]
+               ## Calculate the overall mean value and confidence interval
+               m <- EnvStats::geoMean(md[[y]], na.rm = TRUE)
+               m.sd <- sd(log(md[[y]]), na.rm = TRUE)
+               tcrit <- qt(1 - alpha/2, nrow(md) - 1)
+               m.ci <- exp(c(log(m) - tcrit * m.sd/sqrt(nrow(md) - 1),
+                             log(m) + tcrit * m.sd/sqrt(nrow(md) - 1)))
+               ## Different limit for PERC in limnic and marine
+               if (!grepl("uria", file)) {
+                           if (y %in% names(lims)) {
+                               lim <- list(tv = lims[[y]], fat = NA)
+                               if (grepl("limn", file) & y == "PB" &
+                                   unique(d$GENUS) == "PERC") {
+                                   lim <- list(tv = lims$PBlimn,
+                                               fat = NA)
+                               }
+                           } else lim <- list(tv = NA, fat = NA)
+                           ## Set up limits and fat content for different outcomes
+                           if (y %in% c("PB", "CD") & !grepl("limn", file)) {
+                               d$LTPRC <- as.numeric(d$LTPRC)
+                               d$LTPRC[d$LTPRC == -9] <- NA
+                               fat <- mean(d$LTPRC, na.rm = TRUE)/100
+                               lim$tv <- lim$tv / fat
+                               lim$fat <- 100 * fat
+                           }
+                           if (y %in% c("DDE", "AHCH", "LINDA", "HCB")) {
+                               d$FPRC <- as.numeric(d$FPRC)
+                               d$FPRC[d$FPRC == -9] <- NA
+                               fat <- mean(d$FPRC, na.rm = TRUE)/100
+                               lim$tv <- lim$tv / fat
+                               lim$fat <- 100 * fat
+                           }
+                           if (y %in% c("TCDDEQV", "BDE47", "BDE99", "BDE100",
+                                        "BDE153", "HBCD")) {
+                               d$FPRC <- as.numeric(d$FPRC)
+                               d$FPRC[d$FPRC == -9] <- NA
+                               fat <- mean(d$FPRC, na.rm = TRUE)/100
+                               lim$tv <- lim$tv / fat
+                               lim$fat <- 100 * fat
+                           }
+                           if (y %in% c("CD", "PB") & grepl("limn", file) &
+                               unique(d$GENUS) == "PERC") {
+                               d$LTPRC <- as.numeric(d$LTPRC)
+                               d$LTPRC[d$LTPRC == -9] <- NA
+                               fat <- mean(d$LTPRC, na.rm = TRUE)/100
+                               lim$tv <- lim$tv / fat
+                               lim$fat <- 100 * fat
+                           }
+               } else lim <- list(tv = NA, fat = NA)
+               stattype <- c(type, srt)
+               ## If number of years >= nyears, do the analyses
+               if (nrow(xm[!is.na(xm[[y]]),]) >= nyears &
+                   sd(xm[[y]], na.rm = TRUE) > 0) {
+                   ## Linear model
+                       linmod <- try(do_reg(data = xm, y = paste(y),
+                                            alpha = alpha,
+                                                rob = roblm),
+                                     silent = TRUE)
+                   ## Linear model last 10 years
+                       linmod10 <- if(nrow(xm) >= 10) {
+                                       try(do_reg(data = subset(xm, YEAR > (max(xm$YEAR) - 10)),
+                                                  y = paste(y),
+                                                  alpha = alpha,
+                                                  rob = roblm),
+                                           silent = TRUE)
+                                   } else NULL
+                   ## Smooth
+                       smooth <- try(do_smooth(data = xm, y = paste(y),
+                                               alpha, crit, rob = robsm,
+                                               lmod = linmod$fit),
+                                     silent = TRUE)
+                   if(nrow(xm) > 2 * n0) {
+                       ## Changepoint
+                           changepoint <- try(do_changep(data = xm, y = paste(y), n0),
+                                              silent = TRUE)
+                       } else changepoint <- NULL
+
+                   ## Detect suspected outliers
+                       out <- detect_out(linmod$fit, alpha)
+                   xm$out <- as.numeric(out)
+                   ## If the linear model, smooth or changepoint fails, set them
+                   ## to NULL
+                       if (inherits(linmod, "try-error")) {
+                           linmod <- NULL
+                       }
+                       if (inherits(linmod10, "try-error")) {
+                           linmod10 <- NULL
+                       }
+                       if (inherits(smooth, "try-error")) {
+                           smooth <- NULL
+                       }
+                       if (inherits(changepoint, "try-error")) {
+                           changepoint <- NULL
+                       }
+               }
+               ## Dummy if selection on age is done, for plotting
+               if (!is.null(getElement(getElement(getElement(agesel, y),
+                                                  unique(d$GENUS)),
+                                       unique(d$LOC)))) {
+                   xm$as <- 1
+               } else xm$as <- 0
+               ## If linear model et al has failed, make sure they are set to NULL
+               if(!exists("linmod")) linmod <- NULL
+               if(!exists("linmod10")) linmod10 <- NULL
+               if(!exists("smooth")) smooth <- NULL
+               if(!exists("changepoint")) changepoint <- NULL
+               if(!exists("fatadjust")) fatadjust <- NULL
+               ## Return the output list
+               list(data = d, aggdata = xm,
+                    m = c(m, m.ci),
+                    limit = lim,
+                    linmod = linmod,
+                    linmod10 = linmod10,
+                    smooth = smooth,
+                    changepoint = changepoint,
+                    fatadjust = fatadjust,
+                    stattype = stattype)
+            }), silent = TRUE)
+            names(vvars) <- names(data[[i]][[j]])
+            vvars
+        })
+        names(gens) <- names(data[[i]])
+        gens
+    })
+    names(locs) <- names(data)
+    ## Generate the tables
+    if (generate_tables == TRUE) {
+        gen_tab(li = locs, vars = vars,
+                outpath = file.path(paste0(outdir, maindir)),
+                file = file, ord, stationnames, specs)
+    }
+    locs
+}

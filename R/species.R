@@ -1,0 +1,27 @@
+##' Species names
+##'
+##' None
+##' @title species
+##' @param ... Ignored.
+##' @return A list with species names.
+##' @author Erik Lampa
+##' @export
+species <- function(...) {
+    ## Provides a link between the short species names and the full species names.
+    list(CLUP = list(name = "Herring"),
+         GADU = list(name = "Cod"),
+         MYTI = list(name = "Blue mussel"),
+         PERC = list(name = "Perch"),
+         ZOAR = list(name = "Eelpout"),
+         PLAT = list(name = "European flounder"),
+         SPRAT = list(name = "Sprat"),
+         STER = list(name = "Common tern"),
+         HAEM = list(name = "Eurasian Oystercatcher"),
+         ESOX = list(name = "Pike"),
+         SALV = list(name = "Arctic char"),
+         SIGR = list(name = "Guillemot"),
+         PERC = list(name = "Perch"),
+         SALV = list(name = "Arctic char"),
+         ESOX = list(name = "Pike"),
+         RUTI = list(name = "Roach"))
+}
