@@ -107,7 +107,7 @@ plotlabs <- function(...) {
             D13CUCD = bquote(delta^{13}*C*","~"\211"~muscle),
             D15NUCD = bquote(delta^{15}*N*","~"\211"~muscle),
             MBT = bquote(Monobytultin*","~ng/g~ww~liver),
-            DIBT = bquote(Bibutyltin*","~ng/g~ww~liver),
+            DIBT = bquote(Dibutyltin*","~ng/g~ww~liver),
             TBT = bquote(Tributyltin~(TBT)*","~ng/g~ww~liver),
             MPT = bquote(Monophenyltin*","~ng/g~ww~liver),
             DIPT = bquote(Diphenyltin*","~ng/g~ww~liver),
