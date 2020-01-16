@@ -27,7 +27,7 @@ convert <- function(data, inds, what, genus, srt, loc, co_met, co_dde, type) {
         d[] <- lapply(d[], function(x) {
             x <- as.numeric(x)
             x <- ifelse(x == -9, NA, x)
-            x <- ifelse(x < 0, abs(x)/sqrt(2), x)
+           # x <- ifelse(x < 0, abs(x)/sqrt(2), x)
             x
         })
         ## Get the denominator and perform the conversion
