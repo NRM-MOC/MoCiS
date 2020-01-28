@@ -17,6 +17,7 @@ limits <- function(...) {
         CB153 = 1.6,
         DDE = 0.005,
         AHCH = 0.0026,
+        BHCH = 0.0026,
         LINDA = 0.0026,
         HCB = 0.01,
         PFOS = 155,
