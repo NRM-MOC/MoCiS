@@ -303,7 +303,7 @@ mocis <- function(file, vars = NULL, n0 = 4,
                         lim$tv <- lim$tv / fat
                         lim$fat <- 100 * fat
                     }
-                    if (y %in% c("DDE", "AHCH", "LINDA", "HCB")) {
+                    if (y %in% c("DDE", "AHCH", "BHCH", "LINDA", "HCB")) {
                         d$FPRC <- as.numeric(d$FPRC)
                         d$FPRC[d$FPRC == -9] <- NA
                         fat <- mean(d$FPRC, na.rm = TRUE)/100
