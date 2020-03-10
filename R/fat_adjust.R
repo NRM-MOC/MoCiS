@@ -8,11 +8,12 @@
 ##' @author Erik Lampa
 ##' @export
 fat_adjust <- function(...) {
-    ## Sets which variables, species and locales are to be fat adjusted
-    list(list(VAR = "CD", GENUS = "GADU"),
-         list(VAR = "ZN", GENUS = "GADU"),
-         list(VAR = "NI", GENUS = "GADU"),
-         list(VAR = "DDE", GENUS = "CLUP", LOC = c("UTLV", "ANGV")),
-         list(VAR = "PCBSUM", GENUS = "CLUP", LOC = c("UTLV", "ANGV")),
-         list(VAR = "DDE", GENUS = "GADU"))
+    # ## Sets which variables, species and locales are to be fat adjusted
+    # list(list(VAR = "CD", GENUS = "GADU"),
+    #      list(VAR = "ZN", GENUS = "GADU"),
+    #      list(VAR = "NI", GENUS = "GADU"),
+    #      list(VAR = "DDE", GENUS = "CLUP", LOC = c("UTLV", "ANGV")),
+    #      list(VAR = "PCBSUM", GENUS = "CLUP", LOC = c("UTLV", "ANGV")),
+    #      list(VAR = "DDE", GENUS = "GADU"))
+  list()
 }
