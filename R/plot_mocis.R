@@ -150,7 +150,8 @@ plot_mocis <- function(mocis, var, loc, genus, nyears = 1,
     ## Get the data for plotting
     pldat <- try(getElement(getElement(getElement(mocis, loc), genus), var),
                  silent = TRUE)
-
+    if (mean(pldat$aggdata$all.lod) > .5)
+        what <- "nothing" # Don't plot lines if more than 50% are all <LOD
     if (length(pldat) > 1 & !inherits(pldat, "try-error") & !is.null(pldat))
     {
         if (nrow(pldat$aggdata) >= nyears) {
