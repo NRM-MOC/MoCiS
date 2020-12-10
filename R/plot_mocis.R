@@ -243,8 +243,11 @@ plot_mocis <- function(mocis, var, loc, genus, nyears = 1,
                          ifelse("limn" %in% pldat$stattype, TRUE,
                                 ifelse(!is.na(newlimit), TRUE, FALSE)))))
             ## Get the plot label
-            if (genus %in% c("CLUP", "PERC", "GADU", "ZOAR", "PERC", "ESOX", "SALV")) {
+            if (genus %in% c("CLUP", "PERC", "ZOAR", "PERC", "ESOX", "SALV")) {
                 ylabel <- getElement(getElement(plotlabels, "fish"), var)
+            }
+            if (genus %in% c("GADU")) {
+                ylabel <- getElement(getElement(plotlabels, "cod"), var)
             }
             if (genus == "MYTI") {
                 ylabel <- getElement(getElement(plotlabels, "bluemussel"), var)
