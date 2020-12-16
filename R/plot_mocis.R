@@ -179,7 +179,7 @@ plot_mocis <- function(mocis, var, loc, genus, nyears = 1,
                 ## If less than five yeras exist in the data, set the limit to a
                 ## reasonable value
                 if (nrow(pldat$aggdata) < 5) {
-                    xlims <- c(min(max(pldat$aggdata$YEAR)-.5, max(pldat$aggdata$YEAR) - 5.5), max(pldat$aggdata$YEAR) + 0.5)
+                    xlims <- c(min(min(pldat$aggdata$YEAR)-.5, max(pldat$aggdata$YEAR) - 5.5), max(pldat$aggdata$YEAR) + 0.5)
                 }
             }
             else
