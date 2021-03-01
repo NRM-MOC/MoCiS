@@ -150,8 +150,6 @@ plot_mocis <- function(mocis, var, loc, genus, nyears = 1,
     ## Get the data for plotting
     pldat <- try(getElement(getElement(getElement(mocis, loc), genus), var),
                  silent = TRUE)
-    if (mean(pldat$aggdata$all.lod) > .5)
-        what <- "nothing" # Don't plot lines if more than 50% are all <LOD
     if (length(pldat) > 1 & !inherits(pldat, "try-error") & !is.null(pldat))
     {
         if (nrow(pldat$aggdata) >= nyears) {
@@ -223,6 +221,8 @@ plot_mocis <- function(mocis, var, loc, genus, nyears = 1,
 
                 ## Figure out which lines to plot. If the smooth is a better fit
                 ## than the linear model, plot it, else go with the linear model.
+                if (mean(pldat$aggdata$all.lod) > .5)
+                    what <- "nothing" # Don't plot lines if more than 50% are all <LOD
                 plotline <- plotsmooth <- plotline10 <- FALSE
                 if ("best" %in% what) {
                     if (p.sm >= 0.05) {
