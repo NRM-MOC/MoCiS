@@ -116,7 +116,7 @@ plotlabs <- function(...) {
             DIOT = bquote(Dioctyltin*","~ng/g~ww~liver)),
         cod = list(
             KOND = bquote(Fultons~condition~factor*","~K),
-            FPRC = bquote(Fat*","~"%"~muscle),
+            FPRC = bquote(Fat*","~"%"~liver),
             TOTV= bquote(Total~weight*","~g),
             TOTL= bquote(Total~length*","~cm),
             ALDR= bquote(Age*","~years),
