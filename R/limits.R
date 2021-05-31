@@ -11,7 +11,7 @@ limits <- function(...) {
     list(
         HG = 20,
         PB = 0.085,
-        PBlimn = 1.1,
+        PBlimn = 0.085, #1.1,
         CD = 6.65,
         CB118 = 0.024,
         CB153 = 1.6,
