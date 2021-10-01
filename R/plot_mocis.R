@@ -438,23 +438,25 @@ plot_mocis <- function(mocis, var, loc, genus, nyears = 1,
                                        .(est) ~ (.(lwr)*","~.(upr)))
                 }
                 if (!is.na(limit[1]) & !is.na(fat) & is.na(newlimit)) {
+                    if (!("limn" %in% pldat$stattype & var %in% c("PB","CD") & genus != "PERC")) {
                     ## ltext <- sprintf("%2.0f", limit)
                     ## ftext <- sprintf("%2.0f", fat)
-                    if (length(limit) == 1) {
-                        ltext <- signif(limit, ifelse(limit < 0.01, 1, 2))
-                        ftext <- signif(fat, 2)
+                        if (length(limit) == 1) {
+                            ltext <- signif(limit, ifelse(limit < 0.01, 1, 2))
+                            ftext <- signif(fat, 2)
 
-                        if ("met" %in% pldat$stattype) {
-                            limittext <- bquote(Threshold == .(ltext)*","~dw == .(ftext)*"%")
-                        } else {
-                            limittext <- bquote(Threshold == .(ltext)*","~lw == .(ftext)*"%")
-                        }}
-                    if (length(limit) == 2) {
-                        ltext1 <- signif(limit[1], ifelse(limit[1] < 0.01, 1, 2))
-                        ltext2 <- signif(limit[2], ifelse(limit[2] < 0.01, 1, 2))
-                        ftext <- signif(fat, 2)
-                        limittext1 <- bquote(Threshold == .(ltext1)*","~lw == .(ftext)*"%")
-                        limittext2 <- bquote(Threshold == .(ltext2)*","~lw == .(ftext)*"%")
+                            if ("met" %in% pldat$stattype) {
+                                limittext <- bquote(Threshold == .(ltext)*","~dw == .(ftext)*"%")
+                            } else {
+                                limittext <- bquote(Threshold == .(ltext)*","~lw == .(ftext)*"%")
+                            }}
+                        if (length(limit) == 2) {
+                            ltext1 <- signif(limit[1], ifelse(limit[1] < 0.01, 1, 2))
+                            ltext2 <- signif(limit[2], ifelse(limit[2] < 0.01, 1, 2))
+                            ftext <- signif(fat, 2)
+                            limittext1 <- bquote(Threshold == .(ltext1)*","~lw == .(ftext)*"%")
+                            limittext2 <- bquote(Threshold == .(ltext2)*","~lw == .(ftext)*"%")
+                        }
                     }
                 }
                 if (!is.na(newlimit) & is.na(fat)) {
