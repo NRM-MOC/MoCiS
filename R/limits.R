@@ -9,10 +9,10 @@
 limits <- function(...) {
     ## Sets limit values.
     list(
-        HG = 20,
-        PB = 0.085,
+        HG = 24, #20
+        PB = 0.3, #0.085,
         PBlimn = 0.085, #1.1,
-        CD = 6.65,
+        CD = 2.6, #6.65,
         CB118 = 0.024,
         CB153 = 1.6,
         DDE = 0.005,
@@ -20,7 +20,7 @@ limits <- function(...) {
         BHCH = 0.0026,
         LINDA = 0.0026,
         HCB = 0.01,
-        PFOS = 155,
+        PFOS = 153, #155,
         TCDDEQV = c(3.5, 0.6),
         BDE47 = 0.0085,
         # BDE99 = 0.0085,
