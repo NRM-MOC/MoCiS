@@ -128,7 +128,7 @@ setup <- function(d, file, vars = NULL, add.vars,
                   ifelse(nchar(d$YEAR) == 3, "0",
                   ifelse(nchar(d$YEAR) == 4, substr(d$YEAR, 1, 1),
                   ifelse(nchar(d$YEAR) == 5, substr(d$YEAR, 1, 2), d$YEAR))))
-        d$YEAR <- ifelse(as.numeric(d$YEAR) < 67,
+        d$YEAR <- ifelse(as.numeric(d$YEAR) < 65,
                          2000 + as.numeric(d$YEAR),
                          1900 + as.numeric(d$YEAR))
     } else d$YEAR <- d[[yearvar]]
