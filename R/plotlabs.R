@@ -120,7 +120,7 @@ plotlabs <- function(...) {
             TOTV= bquote(Total~weight*","~g),
             TOTL= bquote(Total~length*","~cm),
             ALDR= bquote(Age*","~years),
-            HBCD = bquote(HBCDD*","~ng/g~lw~muscle),
+            HBCD = bquote(HBCDD*","~ng/g~lw~liver),
             HG = bquote(Hg*","~ng/g~ww~muscle),
             PB = bquote(Pb*","~mu*g/g~dw~liver),
             CD = bquote(Cd*","~mu*g/g~dw~liver),
